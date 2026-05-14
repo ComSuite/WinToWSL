@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <windows.h>
+#include <psapi.h>
 
 typedef HRESULT(WINAPI* WslLaunch)(
     PCWSTR  distributionName,
@@ -34,6 +35,24 @@ wchar_t* to_wide_string(const char* str) {
     }
 
     return wcstring;
+}
+
+void PrintProcessImageFileName(DWORD processID) {
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processID);
+    if (hProcess) {
+        TCHAR imageName[MAX_PATH + 1];
+        if (GetProcessImageFileName(hProcess, imageName, MAX_PATH) > 0) {
+            std::wcout << L"Process ID: " << processID << L", Image Name: " << imageName << std::endl;
+        }
+        else {
+            std::wcerr << L"Failed to retrieve image name for Process ID: " << processID << std::endl;
+        }
+
+        CloseHandle(hProcess);
+    }
+    else {
+        std::wcerr << L"Unable to open Process ID: " << processID << std::endl;
+    }
 }
 
 int main(int argc, char* argv[])
@@ -74,6 +93,7 @@ int main(int argc, char* argv[])
             continue;
 		}
 
+		std::cout << "Executing command in WSL: " << argv[i] << "\n";
 	    HANDLE hProcess = nullptr;
         if (pWslLaunch(distro, cmd, TRUE, GetStdHandle(STD_INPUT_HANDLE), GetStdHandle(STD_OUTPUT_HANDLE), GetStdHandle(STD_ERROR_HANDLE), &hProcess) != S_OK) {
 		    std::cerr << "Failed to launch WSL process.\n";
@@ -86,6 +106,10 @@ int main(int argc, char* argv[])
 	    }
 
 		delete[] cmd;
+
+		
+        PrintProcessImageFileName(GetProcessId(hProcess));
+
 	    CloseHandle(hProcess);
 	}
 
